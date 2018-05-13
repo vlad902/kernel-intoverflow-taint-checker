@@ -1,6 +1,6 @@
-diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp llvm-4.0.0/tools/clang/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp
---- llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp	2017-03-18 17:57:36.000000000 -0400
-+++ llvm-4.0.0/tools/clang/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp	2017-03-24 15:19:09.000000000 -0400
+diff -ur clang-6.0-original/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp clang/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp
+--- clang-6.0-original/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp	2017-12-11 18:27:55.000000000 -0800
++++ clang/lib/StaticAnalyzer/Checkers/GenericTaintChecker.cpp	2018-05-13 13:17:20.058153893 -0700
 @@ -24,12 +24,18 @@
  #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h"
  #include <climits>
@@ -44,7 +44,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
    mutable std::unique_ptr<BugType> BT;
    inline void initBugType() const {
      if (!BT)
-@@ -86,6 +103,14 @@
+@@ -75,6 +92,14 @@
    ProgramStateRef postSocket(const CallExpr *CE, CheckerContext &C) const;
    ProgramStateRef postRetTaint(const CallExpr *CE, CheckerContext &C) const;
  
@@ -59,7 +59,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
    /// Taint the scanned input if the file is tainted.
    ProgramStateRef preFscanf(const CallExpr *CE, CheckerContext &C) const;
  
-@@ -101,6 +126,12 @@
+@@ -90,6 +115,12 @@
    bool checkSystemCall(const CallExpr *CE, StringRef Name,
                         CheckerContext &C) const;
  
@@ -72,7 +72,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
    /// Check if tainted data is used as a buffer size ins strn.. functions,
    /// and allocators.
    static const char MsgTaintedBufferSize[];
-@@ -297,10 +328,10 @@
+@@ -291,10 +322,10 @@
  
    // Process all other functions which could be defined as builtins.
    if (Rule.isNull()) {
@@ -85,7 +85,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
               C.isCLibraryFunction(FDecl, "stpcpy") ||
               C.isCLibraryFunction(FDecl, "strcat"))
        return TaintPropagationRule(1, 0, true);
-@@ -330,6 +361,86 @@
+@@ -324,6 +355,86 @@
    addSourcesPre(CE, C);
  }
  
@@ -172,7 +172,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
  void GenericTaintChecker::checkPostStmt(const CallExpr *CE,
                                          CheckerContext &C) const {
    if (propagateFromPre(CE, C))
-@@ -436,6 +547,54 @@
+@@ -430,6 +541,54 @@
      .Case("getch", &GenericTaintChecker::postRetTaint)
      .Case("wgetch", &GenericTaintChecker::postRetTaint)
      .Case("socket", &GenericTaintChecker::postSocket)
@@ -227,7 +227,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
      .Default(nullptr);
  
    // If the callee isn't defined, it is not of security concern.
-@@ -455,8 +614,10 @@
+@@ -449,8 +608,10 @@
      return true;
  
    const FunctionDecl *FDecl = C.getCalleeDecl(CE);
@@ -240,16 +240,15 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
  
    StringRef Name = C.getCalleeName(FDecl);
    if (Name.empty())
-@@ -645,6 +806,36 @@
+@@ -619,6 +780,34 @@
    return C.getState()->addTaint(CE, C.getLocationContext());
  }
  
 +ProgramStateRef GenericTaintChecker::postArg0Taint(const CallExpr *CE,
 +                                                  CheckerContext &C) const {
 +  ProgramStateRef State = C.getState();
-+  SymbolRef Sym = getPointedToSymbol(C, CE->getArg(0));
-+  if (Sym)
-+    State = State->addTaint(Sym);
++  if (Optional<SVal> V = getPointedToSVal(C, CE->getArg(0)))
++    State = State->addTaint(*V);
 +
 +  return State;
 +}
@@ -267,9 +266,8 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
 +ProgramStateRef GenericTaintChecker::postArg1Taint(const CallExpr *CE,
 +                                                  CheckerContext &C) const {
 +  ProgramStateRef State = C.getState();
-+  SymbolRef Sym = getPointedToSymbol(C, CE->getArg(1));
-+  if (Sym)
-+    State = State->addTaint(Sym);
++  if (Optional<SVal> V = getPointedToSVal(C, CE->getArg(1)))
++    State = State->addTaint(*V);
 +
 +  return State;
 +}
@@ -277,7 +275,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
  bool GenericTaintChecker::isStdin(const Expr *E, CheckerContext &C) {
    ProgramStateRef State = C.getState();
    SVal Val = State->getSVal(E, C.getLocationContext());
-@@ -719,6 +910,20 @@
+@@ -693,6 +882,20 @@
    else
      return false;
  
@@ -298,7 +296,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
    // Generate diagnostic.
    if (ExplodedNode *N = C.generateNonFatalErrorNode()) {
      initBugType();
-@@ -768,6 +973,84 @@
+@@ -742,6 +945,84 @@
    return generateReportIfTainted(CE->getArg(ArgNum), MsgSanitizeSystemArgs, C);
  }
  
@@ -383,7 +381,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
  // TODO: Should this check be a part of the CString checker?
  // If yes, should taint be a global setting?
  bool GenericTaintChecker::checkTaintedBufferSize(const CallExpr *CE,
-@@ -776,6 +1059,7 @@
+@@ -750,6 +1031,7 @@
    // If the function has a buffer size argument, set ArgNum.
    unsigned ArgNum = InvalidArgIndex;
    unsigned BId = 0;
@@ -391,7 +389,7 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
    if ( (BId = FDecl->getMemoryFunctionKind()) )
      switch(BId) {
      case Builtin::BImemcpy:
-@@ -792,19 +1076,80 @@
+@@ -766,19 +1048,80 @@
  
    if (ArgNum == InvalidArgIndex) {
      if (C.isCLibraryFunction(FDecl, "malloc") ||
@@ -478,10 +476,10 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Checkers/GenericTain
  }
  
  void ento::registerGenericTaintChecker(CheckerManager &mgr) {
-diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Core/SimpleConstraintManager.cpp llvm-4.0.0/tools/clang/lib/StaticAnalyzer/Core/SimpleConstraintManager.cpp
---- llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Core/SimpleConstraintManager.cpp	2017-03-18 17:57:36.000000000 -0400
-+++ llvm-4.0.0/tools/clang/lib/StaticAnalyzer/Core/SimpleConstraintManager.cpp	2017-03-18 22:02:10.000000000 -0400
-@@ -50,6 +50,10 @@
+diff -ur clang-6.0-original/lib/StaticAnalyzer/Core/RangeConstraintManager.cpp clang/lib/StaticAnalyzer/Core/RangeConstraintManager.cpp
+--- clang-6.0-original/lib/StaticAnalyzer/Core/RangeConstraintManager.cpp	2017-12-14 07:16:18.000000000 -0800
++++ clang/lib/StaticAnalyzer/Core/RangeConstraintManager.cpp	2018-05-09 18:02:23.946005765 -0700
+@@ -396,6 +396,10 @@
      }
  
      if (const SymSymExpr *SSE = dyn_cast<SymSymExpr>(SE)) {
@@ -489,31 +487,34 @@ diff -ur llvm-4.0.0-original/tools/clang/lib/StaticAnalyzer/Core/SimpleConstrain
 +          SSE->getOpcode() == BO_LT || SSE->getOpcode() == BO_LE)
 +        return true;
 +
-       if (BinaryOperator::isComparisonOp(SSE->getOpcode())) {
-         // We handle Loc <> Loc comparisons, but not (yet) NonLoc <> NonLoc.
-         if (Loc::isLocType(SSE->getLHS()->getType())) {
-@@ -157,6 +161,24 @@
-       BinaryOperator::Opcode Op = SSE->getOpcode();
-       assert(BinaryOperator::isComparisonOp(Op));
+       // FIXME: Handle <=> here.
+       if (BinaryOperator::isEqualityOp(SSE->getOpcode()) ||
+           BinaryOperator::isRelationalOp(SSE->getOpcode())) {
+diff -ur clang-6.0-original/lib/StaticAnalyzer/Core/RangedConstraintManager.cpp clang/lib/StaticAnalyzer/Core/RangedConstraintManager.cpp
+--- clang-6.0-original/lib/StaticAnalyzer/Core/RangedConstraintManager.cpp	2017-12-14 07:16:18.000000000 -0800
++++ clang/lib/StaticAnalyzer/Core/RangedConstraintManager.cpp	2018-05-09 18:13:49.213319266 -0700
+@@ -51,6 +51,24 @@
+     BinaryOperator::Opcode Op = SSE->getOpcode();
+     assert(BinaryOperator::isComparisonOp(Op));
  
-+      // If this is a SymSymExpr of two NonLocs, one of which is not tainted,
-+      // then constrain the tainted value with an artificial value (as if we know
-+      // the second sym being compared against)
-+      if (!Loc::isLocType(SSE->getLHS()->getType())) {
-+        bool lhsTainted = State->isTainted(SSE->getLHS());
-+        bool rhsTainted = State->isTainted(SSE->getRHS());
++    // If this is a SymSymExpr of two NonLocs, one of which is not tainted,
++    // then constrain the tainted value with an artificial value (as if we know
++    // the second sym being compared against)
++    if (!Loc::isLocType(SSE->getLHS()->getType())) {
++      bool lhsTainted = State->isTainted(SSE->getLHS());
++      bool rhsTainted = State->isTainted(SSE->getRHS());
 +
-+        if (!Assumption)
-+          Op = BinaryOperator::negateComparisonOp(Op);
++      if (!Assumption)
++        Op = BinaryOperator::negateComparisonOp(Op);
 +
-+        if (lhsTainted && !rhsTainted)
-+          State = assumeSymRel(State, SSE->getLHS(), Op, llvm::APSInt::get(0x01000000));
-+        if (rhsTainted && !lhsTainted)
-+          State = assumeSymRel(State, SSE->getRHS(), BinaryOperator::negateComparisonOp(Op), llvm::APSInt::get(0x01000000));
++      if (lhsTainted && !rhsTainted)
++        State = assumeSymRel(State, SSE->getLHS(), Op, llvm::APSInt::get(0x01000000));
++      if (rhsTainted && !lhsTainted)
++        State = assumeSymRel(State, SSE->getRHS(), BinaryOperator::negateComparisonOp(Op), llvm::APSInt::get(0x01000000));
 +
-+        return State;
-+      }
++      return State;
++    }
 +
-       // For now, we only support comparing pointers.
-       assert(Loc::isLocType(SSE->getLHS()->getType()));
-       assert(Loc::isLocType(SSE->getRHS()->getType()));
+     // For now, we only support comparing pointers.
+     assert(Loc::isLocType(SSE->getLHS()->getType()));
+     assert(Loc::isLocType(SSE->getRHS()->getType()));

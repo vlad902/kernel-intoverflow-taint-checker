@@ -18,23 +18,20 @@ else
   export CPUS=1
 fi
 
-wget http://releases.llvm.org/4.0.0/llvm-4.0.0.src.tar.xz
-wget http://releases.llvm.org/4.0.0/cfe-4.0.0.src.tar.xz
+wget http://releases.llvm.org/6.0.0/llvm-6.0.0.src.tar.xz
+wget http://releases.llvm.org/6.0.0/cfe-6.0.0.src.tar.xz
 
-tar -xf llvm-4.0.0.src.tar.xz
-tar -xf cfe-4.0.0.src.tar.xz
+tar -xf llvm-6.0.0.src.tar.xz
+tar -xf cfe-6.0.0.src.tar.xz
 
-mv llvm-4.0.0.src llvm
-mv cfe-4.0.0.src llvm/tools/clang
+mv llvm-6.0.0.src llvm
+mv cfe-6.0.0.src llvm/tools/clang
 
-rm llvm-4.0.0.src.tar.xz cfe-4.0.0.src.tar.xz
+rm llvm-6.0.0.src.tar.xz cfe-6.0.0.src.tar.xz
 
 cd llvm/tools/clang
-patch -p2 < $CURDIR/D28445.diff
-patch -p2 < $CURDIR/D30289.diff
-patch -p0 < $CURDIR/D30406.diff
-patch -p0 < $CURDIR/D30909.diff
-patch -p3 < $CURDIR/taint.patch
+patch -p1 < $CURDIR/taint.patch
+ln -s $CURDIR/tests test/Analysis/kernel-int-overflow-checker
 ln -s $CURDIR/MachInterface.h include/clang/StaticAnalyzer/Checkers/MachInterface.h
 cd ../../..
 

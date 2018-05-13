@@ -1,5 +1,4 @@
-// TODO: %clang_analyze_cc1 -analyzer-checker=core,alpha.security.taint -analyzer-store=region -verify -fno-builtin %s
-// RUN: %clang_cc1 -analyze -analyzer-checker=core,alpha.security.taint -analyzer-store=region -verify -fno-builtin %s
+// RUN: %clang_analyze_cc1 -analyzer-checker=core,alpha.security.taint -analyzer-store=region -verify -fno-builtin %s
 
 #include "common.h"
 
